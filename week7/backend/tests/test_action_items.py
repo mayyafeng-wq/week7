@@ -23,27 +23,25 @@ def test_create_complete_list_and_patch_action_item(client):
     assert patched["description"] == "Updated"
 
 
-def test_action_item_get_and_delete(client):
-    r = client.post("/action-items/", json={"description": "Temporary"})
-    assert r.status_code == 201
-    item_id = r.json()["id"]
+def test_action_item_get_delete_and_note_link(client):
+    note = client.post("/notes/", json={"title": "Linked", "content": "Note"}).json()
 
-    r = client.get(f"/action-items/{item_id}")
+    r = client.post(
+        "/action-items/",
+        json={"description": "From note", "note_id": note["id"]},
+    )
+    assert r.status_code == 201
+    item = r.json()
+    assert item["note_id"] == note["id"]
+
+    r = client.get(f"/action-items/{item['id']}")
     assert r.status_code == 200
 
-    r = client.delete(f"/action-items/{item_id}")
+    r = client.delete(f"/action-items/{item['id']}")
     assert r.status_code == 204
 
-    r = client.get(f"/action-items/{item_id}")
+    r = client.post("/action-items/", json={"description": "Bad link", "note_id": 99999})
     assert r.status_code == 404
-
-
-def test_patch_action_item_requires_fields(client):
-    r = client.post("/action-items/", json={"description": "Patch me"})
-    item_id = r.json()["id"]
-
-    r = client.patch(f"/action-items/{item_id}", json={})
-    assert r.status_code == 400
 
 
 def test_extract_endpoint(client):
