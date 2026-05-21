@@ -72,3 +72,18 @@ class PaginatedNotes(BaseModel):
 class PaginatedActionItems(BaseModel):
     items: list[ActionItemRead]
     meta: PaginatedMeta
+
+
+class ExtractRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=50_000)
+
+
+class ExtractedActionItem(BaseModel):
+    text: str
+    priority: str | None = None
+    assignee: str | None = None
+    due_date: str | None = None
+
+
+class ExtractResponse(BaseModel):
+    items: list[ExtractedActionItem]
