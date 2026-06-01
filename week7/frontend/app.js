@@ -8,7 +8,8 @@ async function loadNotes(params = {}) {
   const list = document.getElementById('notes');
   list.innerHTML = '';
   const query = new URLSearchParams(params);
-  const notes = await fetchJSON('/notes/?' + query.toString());
+  const data = await fetchJSON('/notes/?' + query.toString());
+  const notes = data.items ?? data;
   for (const n of notes) {
     const li = document.createElement('li');
     li.textContent = `${n.title}: ${n.content}`;
@@ -20,7 +21,8 @@ async function loadActions(params = {}) {
   const list = document.getElementById('actions');
   list.innerHTML = '';
   const query = new URLSearchParams(params);
-  const items = await fetchJSON('/action-items/?' + query.toString());
+  const data = await fetchJSON('/action-items/?' + query.toString());
+  const items = data.items ?? data;
   for (const a of items) {
     const li = document.createElement('li');
     li.textContent = `${a.description} [${a.completed ? 'done' : 'open'}]`;
@@ -88,5 +90,3 @@ window.addEventListener('DOMContentLoaded', () => {
   loadNotes();
   loadActions();
 });
-
-

@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class NoteCreate(BaseModel):
-    title: str
-    content: str
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=10_000)
 
 
 class NoteRead(BaseModel):
@@ -20,12 +20,19 @@ class NoteRead(BaseModel):
 
 
 class NotePatch(BaseModel):
-    title: str | None = None
-    content: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    content: str | None = Field(default=None, min_length=1, max_length=10_000)
+
+    @field_validator("title", "content", mode="before")
+    @classmethod
+    def reject_empty_strings(cls, value: str | None) -> str | None:
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("must not be empty")
+        return value
 
 
 class ActionItemCreate(BaseModel):
-    description: str
+    description: str = Field(..., min_length=1, max_length=5_000)
 
 
 class ActionItemRead(BaseModel):
@@ -40,7 +47,28 @@ class ActionItemRead(BaseModel):
 
 
 class ActionItemPatch(BaseModel):
-    description: str | None = None
+    description: str | None = Field(default=None, min_length=1, max_length=5_000)
     completed: bool | None = None
 
+    @field_validator("description", mode="before")
+    @classmethod
+    def reject_empty_description(cls, value: str | None) -> str | None:
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("must not be empty")
+        return value
 
+
+class PaginatedMeta(BaseModel):
+    total: int
+    skip: int
+    limit: int
+
+
+class PaginatedNotes(BaseModel):
+    items: list[NoteRead]
+    meta: PaginatedMeta
+
+
+class PaginatedActionItems(BaseModel):
+    items: list[ActionItemRead]
+    meta: PaginatedMeta
