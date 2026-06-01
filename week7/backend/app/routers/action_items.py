@@ -105,15 +105,16 @@ def complete_item(item_id: int, db: Session = Depends(get_db)) -> ActionItemRead
 def patch_item(
     item_id: int, payload: ActionItemPatch, db: Session = Depends(get_db)
 ) -> ActionItemRead:
-    if payload.description is None and payload.completed is None and payload.note_id is None:
+    if not payload.model_fields_set:
         raise HTTPException(status_code=400, detail="At least one field must be provided")
 
     item = db.get(ActionItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Action item not found")
 
-    if payload.note_id is not None:
-        _validate_note_id(payload.note_id, db)
+    if "note_id" in payload.model_fields_set:
+        if payload.note_id is not None:
+            _validate_note_id(payload.note_id, db)
         item.note_id = payload.note_id
     if payload.description is not None:
         item.description = payload.description.strip()
