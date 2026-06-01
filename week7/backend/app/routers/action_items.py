@@ -5,7 +5,7 @@ from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import ActionItem
+from ..models import ActionItem, Note
 from ..schemas import (
     ActionItemCreate,
     ActionItemPatch,
@@ -20,12 +20,14 @@ from ..services.extract import analyze_action_items
 
 router = APIRouter(prefix="/action-items", tags=["action_items"])
 
-ALLOWED_SORT_FIELDS = {"id", "description", "completed", "created_at", "updated_at"}
+ALLOWED_SORT_FIELDS = {"id", "description", "completed", "created_at", "updated_at", "note_id"}
 
 
-def _apply_item_filters(stmt, completed: Optional[bool]):
+def _apply_item_filters(stmt, completed: Optional[bool], note_id: Optional[int]):
     if completed is not None:
         stmt = stmt.where(ActionItem.completed.is_(completed))
+    if note_id is not None:
+        stmt = stmt.where(ActionItem.note_id == note_id)
     return stmt
 
 
@@ -37,15 +39,23 @@ def _apply_item_sort(stmt, sort: str):
     return stmt.order_by(desc(ActionItem.created_at))
 
 
+def _validate_note_id(note_id: int | None, db: Session) -> None:
+    if note_id is None:
+        return
+    if not db.get(Note, note_id):
+        raise HTTPException(status_code=404, detail="Linked note not found")
+
+
 @router.get("/", response_model=PaginatedActionItems)
 def list_items(
     db: Session = Depends(get_db),
     completed: Optional[bool] = None,
+    note_id: Optional[int] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     sort: str = Query("-created_at"),
 ) -> PaginatedActionItems:
-    base_stmt = _apply_item_filters(select(ActionItem), completed)
+    base_stmt = _apply_item_filters(select(ActionItem), completed, note_id)
     total = db.execute(select(func.count()).select_from(base_stmt.subquery())).scalar_one()
 
     rows = (
@@ -59,7 +69,12 @@ def list_items(
 
 @router.post("/", response_model=ActionItemRead, status_code=201)
 def create_item(payload: ActionItemCreate, db: Session = Depends(get_db)) -> ActionItemRead:
-    item = ActionItem(description=payload.description.strip(), completed=False)
+    _validate_note_id(payload.note_id, db)
+    item = ActionItem(
+        description=payload.description.strip(),
+        completed=False,
+        note_id=payload.note_id,
+    )
     db.add(item)
     db.flush()
     db.refresh(item)
@@ -90,16 +105,21 @@ def complete_item(item_id: int, db: Session = Depends(get_db)) -> ActionItemRead
 def patch_item(
     item_id: int, payload: ActionItemPatch, db: Session = Depends(get_db)
 ) -> ActionItemRead:
-    if payload.description is None and payload.completed is None:
+    if payload.description is None and payload.completed is None and payload.note_id is None:
         raise HTTPException(status_code=400, detail="At least one field must be provided")
 
     item = db.get(ActionItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Action item not found")
+
+    if payload.note_id is not None:
+        _validate_note_id(payload.note_id, db)
+        item.note_id = payload.note_id
     if payload.description is not None:
         item.description = payload.description.strip()
     if payload.completed is not None:
         item.completed = payload.completed
+
     db.add(item)
     db.flush()
     db.refresh(item)

@@ -5,8 +5,15 @@ from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Note
-from ..schemas import NoteCreate, NotePatch, NoteRead, PaginatedMeta, PaginatedNotes
+from ..models import Note, Tag
+from ..schemas import (
+    NoteCreate,
+    NotePatch,
+    NoteRead,
+    NoteTagUpdate,
+    PaginatedMeta,
+    PaginatedNotes,
+)
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
@@ -90,3 +97,22 @@ def delete_note(note_id: int, db: Session = Depends(get_db)) -> Response:
     db.delete(note)
     db.flush()
     return Response(status_code=204)
+
+
+@router.put("/{note_id}/tags", response_model=list[str])
+def set_note_tags(note_id: int, payload: NoteTagUpdate, db: Session = Depends(get_db)) -> list[str]:
+    note = db.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    if payload.tag_ids:
+        tags = db.execute(select(Tag).where(Tag.id.in_(payload.tag_ids))).scalars().all()
+        if len(tags) != len(set(payload.tag_ids)):
+            raise HTTPException(status_code=404, detail="One or more tags not found")
+        note.tags = tags
+    else:
+        note.tags = []
+    db.add(note)
+    db.flush()
+    db.refresh(note)
+    return [tag.name for tag in note.tags]

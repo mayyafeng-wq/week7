@@ -33,12 +33,14 @@ class NotePatch(BaseModel):
 
 class ActionItemCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=5_000)
+    note_id: int | None = None
 
 
 class ActionItemRead(BaseModel):
     id: int
     description: str
     completed: bool
+    note_id: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -49,6 +51,7 @@ class ActionItemRead(BaseModel):
 class ActionItemPatch(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=5_000)
     completed: bool | None = None
+    note_id: int | None = None
 
     @field_validator("description", mode="before")
     @classmethod
@@ -56,6 +59,37 @@ class ActionItemPatch(BaseModel):
         if isinstance(value, str) and not value.strip():
             raise ValueError("must not be empty")
         return value
+
+
+class TagCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+
+
+class TagRead(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class NoteTagUpdate(BaseModel):
+    tag_ids: list[int] = Field(default_factory=list)
+
+
+class ExtractRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=50_000)
+
+
+class ExtractedActionItem(BaseModel):
+    text: str
+    priority: str | None = None
+    assignee: str | None = None
+    due_date: str | None = None
+
+
+class ExtractResponse(BaseModel):
+    items: list[ExtractedActionItem]
 
 
 class PaginatedMeta(BaseModel):
@@ -72,18 +106,3 @@ class PaginatedNotes(BaseModel):
 class PaginatedActionItems(BaseModel):
     items: list[ActionItemRead]
     meta: PaginatedMeta
-
-
-class ExtractRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=50_000)
-
-
-class ExtractedActionItem(BaseModel):
-    text: str
-    priority: str | None = None
-    assignee: str | None = None
-    due_date: str | None = None
-
-
-class ExtractResponse(BaseModel):
-    items: list[ExtractedActionItem]
