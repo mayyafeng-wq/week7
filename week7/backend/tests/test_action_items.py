@@ -44,3 +44,12 @@ def test_patch_action_item_requires_fields(client):
 
     r = client.patch(f"/action-items/{item_id}", json={})
     assert r.status_code == 400
+
+
+def test_extract_endpoint(client):
+    text = "TODO: write tests\n- [ ] Review @alice due Friday"
+    r = client.post("/action-items/extract", json={"text": text})
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert any("write tests" in i["text"].lower() for i in items)
+    assert any(i.get("assignee") == "alice" for i in items)

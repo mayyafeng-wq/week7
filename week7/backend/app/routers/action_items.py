@@ -10,9 +10,13 @@ from ..schemas import (
     ActionItemCreate,
     ActionItemPatch,
     ActionItemRead,
+    ExtractRequest,
+    ExtractResponse,
+    ExtractedActionItem,
     PaginatedActionItems,
     PaginatedMeta,
 )
+from ..services.extract import analyze_action_items
 
 router = APIRouter(prefix="/action-items", tags=["action_items"])
 
@@ -110,3 +114,19 @@ def delete_item(item_id: int, db: Session = Depends(get_db)) -> Response:
     db.delete(item)
     db.flush()
     return Response(status_code=204)
+
+
+@router.post("/extract", response_model=ExtractResponse)
+def extract_items(payload: ExtractRequest) -> ExtractResponse:
+    analyzed = analyze_action_items(payload.text)
+    return ExtractResponse(
+        items=[
+            ExtractedActionItem(
+                text=item.text,
+                priority=item.priority,
+                assignee=item.assignee,
+                due_date=item.due_date,
+            )
+            for item in analyzed
+        ]
+    )
