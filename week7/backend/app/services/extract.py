@@ -7,6 +7,7 @@ PRIORITY_KEYWORDS = {
     "critical": "high",
     "important": "medium",
     "soon": "medium",
+    "low priority": "low",
 }
 
 ACTION_PREFIXES = ("todo:", "action:", "task:", "fix:")
